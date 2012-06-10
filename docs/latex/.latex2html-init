@@ -1,0 +1,74 @@
+# The title.
+$TITLE = 'The relax user manual';
+
+# Allow images in the base relax directory to be used.
+$DVIPS = 'dvips -R0';
+
+# Better maths images.
+$DVIPSOPT = ' -E';
+
+# The path to the custom icons.
+$ALTERNATIVE_ICONS = 'icons';
+
+%iconsizes = (
+'up' ,'WIDTH="48" HEIGHT="48" TITLE="Up"',
+'next','WIDTH="48" HEIGHT="48" TITLE="Next"',
+'previous','WIDTH="48" HEIGHT="48" TITLE="Previous"',
+'next_group' ,'WIDTH="48" HEIGHT="48" TITLE="Next group"',
+'next_inactive' ,'WIDTH="48" HEIGHT="48" TITLE="Next"',
+'previous_group','WIDTH="48" HEIGHT="48" TITLE="Previous group"',
+'contents','WIDTH="48" HEIGHT="48" TITLE="Contents"',
+'index','WIDTH="48" HEIGHT="48" TITLE="Index"',
+);
+
+# Copy the icons into the HTML target directory.
+$LOCAL_ICONS = 1;
+
+# Set the HTML version.
+$HTML_VERSION = "4.0,math";
+
+# Additions to the head tag (Google analytics JS).
+$LATEX2HTML_META = "
+  <!--Google analytics JS-->
+  <script type=\"text/javascript\">
+  
+    var _gaq = _gaq || [];
+    _gaq.push(['_setAccount', 'UA-30096326-1']);
+    _gaq.push(['_setDomainName', 'nmr-relax.com']);
+    _gaq.push(['_trackPageview']);
+  
+    (function() {
+      var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+      ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+      var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+    })();
+  
+  </script>
+";
+
+# The names of the HTML pages.
+$LONG_TITLES = 5;
+
+# The level for splitting into separate HTML pages.
+$MAX_SPLIT_DEPTH = 5;
+
+# Navigation links at the bottom as well.
+$AUTO_NAVIGATION = 1;
+
+# The auxillary file prefix.
+$EXTERNAL_FILE = "relax";
+
+# Nicer figures.
+$ANTI_ALIAS = 1;
+
+# Set the font size.
+$FONT_SIZE = "12pt";
+
+# Ignore certain LaTeX commands
+&ignore_commands( <<_IGNORED_CMDS_);
+documentstyle # [] # {}
+linebreak # []
+mbox
+_IGNORED_CMDS_
+
+1;	# This must be the last line

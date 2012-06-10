@@ -1,0 +1,7 @@
+#! /usr/bin/env python
+
+# Import the relax module.
+import relax
+
+# Start relax.
+relax.start()

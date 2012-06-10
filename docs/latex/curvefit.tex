@@ -1,0 +1,239 @@
+% Relaxation curve-fitting.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\chapter[Relaxation curve-fitting]{The $\Rone$ and $\Rtwo$ relaxation rates -- relaxation curve-fitting}
+\index{relaxation curve-fitting|textbf}
+
+
+
+% Introduction.
+%%%%%%%%%%%%%%%
+
+\section{Introduction}
+
+Relaxation curve-fitting involves a number of steps including the loading of data, the calculation of both the average peak intensity\index{peak!intensity} across replicated spectra and the standard deviations\index{standard deviation} of those peak intensities, selection of the experiment type, optimisation of the parameters of the fit, Monte Carlo simulations\index{Monte Carlo simulation} to find the parameter errors, and saving and viewing the results.  To simplify the process a sample script will be followed step by step as was done with the NOE calculation.
+
+
+
+% The sample script.
+%%%%%%%%%%%%%%%%%%%%
+
+\section{The sample script}
+
+\begin{exampleenv}
+\# Script for relaxation curve-fitting. \\
+ \\
+\# Create the `rx' data pipe. \\
+pipe.create(`rx', `relax\_fit') \\
+ \\
+\# Load the backbone amide 15N spins from a PDB file. \\
+structure.read\_pdb(`Ap4Aase\_new\_3.pdb') \\
+structure.load\_spins(spin\_id=`@N') \\
+ \\
+\# Load the peak intensities. \\
+relax\_fit.read(file=`T2\_ncyc1.list', relax\_time=0.0176) \\
+relax\_fit.read(file=`T2\_ncyc1b.list', relax\_time=0.0176) \\
+relax\_fit.read(file=`T2\_ncyc2.list', relax\_time=0.0352) \\
+relax\_fit.read(file=`T2\_ncyc4.list', relax\_time=0.0704) \\
+relax\_fit.read(file=`T2\_ncyc4b.list', relax\_time=0.0704) \\
+relax\_fit.read(file=`T2\_ncyc6.list', relax\_time=0.1056) \\
+relax\_fit.read(file=`T2\_ncyc9.list', relax\_time=0.1584) \\
+relax\_fit.read(file=`T2\_ncyc9b.list', relax\_time=0.1584) \\
+relax\_fit.read(file=`T2\_ncyc11.list', relax\_time=0.1936) \\
+relax\_fit.read(file=`T2\_ncyc11b.list', relax\_time=0.1936) \\
+ \\
+\# Calculate the peak intensity averages and the standard deviation of all spectra. \\
+relax\_fit.mean\_and\_error() \\
+ \\
+\# Deselect unresolved residues. \\
+deselect.read(file=`unresolved') \\
+ \\
+\# Set the relaxation curve type. \\
+relax\_fit.select\_model(`exp') \\
+ \\
+\# Grid search. \\
+grid\_search(inc=11) \\
+ \\
+\# Minimise. \\
+minimise(`simplex', scaling=False, constraints=False) \\
+ \\
+\# Monte Carlo simulations. \\
+monte\_carlo.setup(number=500) \\
+monte\_carlo.create\_data() \\
+monte\_carlo.initial\_values() \\
+minimise(`simplex', scaling=False, constraints=False) \\
+monte\_carlo.error\_analysis() \\
+ \\
+\# Save the relaxation rates. \\
+value.write(param=`rx', file=`rx.out', force=True) \\
+ \\
+\# Grace plots of the relaxation rate. \\
+grace.write(y\_data\_type=`rx', file=`rx.agr', force=True) \\
+grace.view(file=`rx.agr') \\
+ \\
+\# Save the program state. \\
+state.save(file=`rx.save', force=True)
+\end{exampleenv}
+
+
+
+% Initialisation of the data pipe and loading of the data.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Initialisation of the data pipe and loading of the data}
+
+The start of this sample script is very similar to that of the NOE calculation on page~\pageref{NOE initialisation}.  The command
+
+\begin{exampleenv}
+pipe.create(`rx', `relax\_fit')
+\end{exampleenv}
+
+initialises the data pipe labelled \texttt{`rx'}.  The data pipe type is set to relaxation curve-fitting by the argument \texttt{`relax\_fit'}.  The backbone amide nitrogen sequence is extracted from a PDB\index{PDB} file using the same commands as the NOE calculation script
+
+\example{structure.read\_pdb(name, `Ap4Aase\_new\_3.pdb')}
+\index{PDB}
+
+\example{structure.load\_spins(spin\_id=`@N')}
+
+To load the peak intensities\index{peak!intensity} into relax the user function \texttt{relax\_fit.read} is executed.  Two important keyword arguments to this command are the file name and the relaxation time period of the experiment in seconds.  It is assumed that the file format is that of a Sparky\index{software!Sparky} peak list.  Using the format argument, this can be changed to XEasy\index{software!XEasy} text window output format.  To be able to import any other type of format please send an email to the relax development mailing list\index{mailing list!relax-devel} with the details of the format.  Adding support for new formats is trivial.  The following series of commands will load peak intensities from six different relaxation periods, four of which have been duplicated
+
+\begin{exampleenv}
+relax\_fit.read(file=`T2\_ncyc1.list', relax\_time=0.0176) \\
+relax\_fit.read(file=`T2\_ncyc1b.list', relax\_time=0.0176) \\
+relax\_fit.read(file=`T2\_ncyc2.list', relax\_time=0.0352) \\
+relax\_fit.read(file=`T2\_ncyc4.list', relax\_time=0.0704) \\
+relax\_fit.read(file=`T2\_ncyc4b.list', relax\_time=0.0704) \\
+relax\_fit.read(file=`T2\_ncyc6.list', relax\_time=0.1056) \\
+relax\_fit.read(file=`T2\_ncyc9.list', relax\_time=0.1584) \\
+relax\_fit.read(file=`T2\_ncyc9b.list', relax\_time=0.1584) \\
+relax\_fit.read(file=`T2\_ncyc11.list', relax\_time=0.1936) \\
+relax\_fit.read(file=`T2\_ncyc11b.list', relax\_time=0.1936)
+\end{exampleenv}
+
+The format for the Sparky peak list is assumed to have the intensity value in the 4$^\textrm{th}$ column, e.g.:
+
+{\footnotesize \begin{verbatim}
+     Assignment         w1         w2   Data Height
+
+        LEU3N-HN    122.454      8.397       129722
+        GLY4N-HN    111.999      8.719       422375
+        SER5N-HN    115.085      8.176       384180
+        MET6N-HN    120.934      8.812       272100
+        ASP7N-HN    122.394      8.750       174970
+        SER8N-HN    113.916      7.836       218762
+       GLU11N-HN    122.194      8.604        30412
+       GLY12N-HN    110.525      9.028        90144
+\end{verbatim}}
+
+
+
+% The rest of the setup.
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{The rest of the setup}
+
+Once all the peak intensity data has been loaded a few calculations are required prior to optimisation.  Firstly the peak intensities for individual residues needs to be averaged across replicated spectra.  The peak intensity errors also have to be calculated using the standard deviation formula.  These two operations are executed by the user function
+
+\example{relax\_fit.mean\_and\_error()}
+
+Any residues which cannot be resolved due to peak overlap were included in a file called \texttt{`unresolved'}.  This file consists solely of one residue number per line.  These residues are excluded from the analysis by the user function
+
+\example{deselect.read(file=`unresolved')}
+
+Finally the experiment type is specified by the command
+
+\example{relax\_fit.select\_model(`exp')}
+
+The argument \texttt{`exp'} sets the relaxation curve to a two parameter \{$\mathrm{R}_x$, $I_0$\} exponential which decays to zero.  The formula of this function is
+\begin{equation}
+ I(t) = I_0 e^{-\mathrm{R}_x \cdot t},
+\end{equation}
+
+\noindent where $I(t)$ is the peak intensity at any time point $t$, $I_0$ is the initial intensity, and $\mathrm{R}_x$ is the relaxation rate (either the $\Rone$ or $\Rtwo$).  Changing the user function argument to \texttt{`inv'} will select the inversion recovery experiment.  This curve consists of three paremeters \{$\Rone$, $I_0$, $I_{\infty}$\} and does not decay to zero.  The formula is
+\begin{equation}
+ I(t) = I_{\infty} - I_0 e^{-\Rone \cdot t}.
+\end{equation}
+
+
+
+% Optimisation.
+%%%%%%%%%%%%%%%
+
+\section{Optimisation}
+
+Now that everything has been setup minimision can be used to optimise the parameter values.  Firstly a grid search is applied to find a rough starting position for the subsequent optimisation algorithm.  Eleven increments per dimension of the model (in this case the two dimensions \{$\mathrm{R}_x$, $I_0$\}) is sufficient.  The user function for executing the grid search is
+
+\example{grid\_search(inc=11)}
+
+The next step is to select one of the minimisation algorithms to optimise the model parameters.  Currently for relaxation curve-fitting only simplex minimisation is supported.  This is because the relaxation curve-fitting C module is incomplete only implementing the chi-squared function.  The chi-squared gradient (the vector of first partial derivatives) and chi-squared Hessian (the matrix of second partial derivatives) are not yet implemented in the C modules and hence optimisation algorithms which only employ function calls are supported.  Simplex minimisation is the only technique in relax which fits this criteron.  In addition constraints cannot be used as the constraint algorithm is dependent on gradient calls.  Therefore the minimisation command for relaxation curve-fitting is forced to be
+
+\example{minimise(`simplex', constraints=False)}
+
+
+
+% Error analysis.
+%%%%%%%%%%%%%%%%%
+
+\section{Error analysis}
+
+Only one technique adequately estimates parameter errors when the parameter values where found by optimisation -- Monte Carlo simulations\index{Monte Carlo simulation}.  In relax this can be implemented by using a series of functions from the \texttt{monte\_carlo} user function class.  Firstly the number of simulations needs to be set
+
+\example{monte\_carlo.setup(number=500)}
+
+For each simulation, randomised relaxation curves will be fit using exactly the same methodology as the original exponential curves.  These randomised curves are created by back calculation from the fitted model parameter values and then each point on the curve randomised using the error values set earlier in the script
+
+\example{monte\_carlo.create\_data()}
+
+As a grid search for each simulation would be too computationally expensive, the starting point for optimisation for each simulation can be set to the position of the optimised parameter values of the model
+
+\example{monte\_carlo.initial\_values()}
+
+Then exactly the same optimisation as was used for the model can be performed
+
+\example{minimise(`simplex', constraints=False)}
+
+The parameter errors are then determined as the standard deviation of the optimised parameter values of the simulations
+
+\example{monte\_carlo.error\_analysis()}
+
+
+
+% Finishing off.
+%%%%%%%%%%%%%%%%
+
+\section{Finishing off}
+
+To finish off, the script first saves the relaxation rates together with their errors in a simple text file
+
+\example{value.write(param=`rx', file=`rx.out', force=True)}
+
+Grace plots are created and viewed
+
+\example{grace.write(y\_data\_type=`rx', file=`rx.agr', force=True)}
+
+\example{grace.view(file=`rx.agr')}
+
+and finally the program state is saved for future reference
+
+\example{state.save(file=`rx.save', force=True)}
+
+
+
+% GUI.
+%%%%%%
+
+\section{The GUI auto-analysis}
+
+The $\Rone$ and $\Rtwo$ relaxation rates can be calculated using the relax GUI (see Figures~\ref{fig: screenshot: R1 analysis} and~\ref{fig: screenshot: R1 analysis}).  These auto-analyses can be selected using the analysis selection wizard (Figure~\ref{fig: screenshot: analysis wizard} on page~\pageref{fig: screenshot: analysis wizard}).  Just as with the steady-state NOE, these auto-analyses are very similar in spirit to the sample script described in this chapter, though the Grace 2D visualisation is more advanced.  If you have read this chapter, the usage of these analyses should be self explanatory.
+
+% R1 analysis screenshot
+\begin{figure}
+\centerline{\includegraphics[width=\textwidth, bb=14 14 1065 768]{graphics/screenshots/analysis_r1.eps.gz}}
+\caption[GUI screenshot -- $\Rone$ analysis]{Screenshot of the relax GUI interface -- the $\Rone$ analysis.}\label{fig: screenshot: R1 analysis}
+\end{figure}
+
+% R2 analysis screenshot
+\begin{figure}
+\centerline{\includegraphics[width=\textwidth, bb=14 14 1065 768]{graphics/screenshots/analysis_r2.eps.gz}}
+\caption[GUI screenshot -- $\Rtwo$ analysis]{Screenshot of the relax GUI interface -- the $\Rtwo$ analysis.}\label{fig: screenshot: R2 analysis}
+\end{figure}

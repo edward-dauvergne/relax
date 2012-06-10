@@ -1,0 +1,131 @@
+###############################################################################
+#                                                                             #
+# Copyright (C) 2006-2012 Edward d'Auvergne                                   #
+#                                                                             #
+# This file is part of the program relax.                                     #
+#                                                                             #
+# relax is free software; you can redistribute it and/or modify               #
+# it under the terms of the GNU General Public License as published by        #
+# the Free Software Foundation; either version 2 of the License, or           #
+# (at your option) any later version.                                         #
+#                                                                             #
+# relax is distributed in the hope that it will be useful,                    #
+# but WITHOUT ANY WARRANTY; without even the implied warranty of              #
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the               #
+# GNU General Public License for more details.                                #
+#                                                                             #
+# You should have received a copy of the GNU General Public License           #
+# along with relax; if not, write to the Free Software                        #
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA   #
+#                                                                             #
+###############################################################################
+
+# Package docstring.
+"""The relax GUI tests."""
+
+# Python module imports.
+from re import search
+from string import split
+from unittest import TestSuite
+
+# relax module imports.
+from relax_errors import RelaxError
+
+# relax GUI test module imports.
+from bmrb import Bmrb
+from consistency_tests import Ct
+from dead_uf_pages import Dead_uf_pages
+from frame_order import Frame_order
+from jw_mapping import Jw_mapping
+from model_free import Mf
+from n_state_model import N_state_model
+from noe import Noe
+from pipes import Pipes
+from rx import Rx
+from state import State
+from test_suite.relax_test_loader import RelaxTestLoader as TestLoader
+
+
+__all__ = ['bmrb',
+           'consistency_tests',
+           'jw_mapping',
+           'model_free',
+           'n_state_model',
+           'noe',
+           'pipes',
+           'rx',
+           'state']
+
+
+class GUI_test_runner:
+    """Class for executing all of the GUI tests."""
+
+    def run(self, tests=None, runner=None):
+        """Run the GUI tests.
+
+        The GUI test list should be something like ['N_state_model.test_stereochem_analysis'].  The first part is the imported test case class, the second is the specific test.
+
+
+        @keyword tests:     The list of GUI tests to preform.
+        @type tests:        list of str
+        @keyword runner:    A test runner such as TextTestRunner.  For an example of how to write a test runner see the python documentation for TextTestRunner in the python source.
+        @type runner:       Test runner instance (TextTestRunner, BaseGUITestRunner subclass, etc.)
+        """
+
+        # Create an array of test suites (add your new TestCase classes here).
+        suite_array = []
+
+        # Specific tests.
+        for test in tests:
+            # The entire test class.
+            if not search('\.', test):
+                # Check that the class exists.
+                if test not in globals():
+                    raise RelaxError("The GUI test class '%s' does not exist." % test)
+
+                # The uninstantiated class object.
+                obj = globals()[test]
+
+                # Add the tests.
+                suite_array.append(TestLoader().loadTestsFromTestCase(obj))
+
+            # Single system test.
+            else:
+                # Split.
+                row = split(test, '.')
+
+                # Check.
+                if len(row) != 2:
+                    raise RelaxError("The GUI test '%s' is not in the correct format.  It should consist of the test case class, a dot, and the specific test." % test)
+
+                # Unpack.
+                class_name, test_name = row
+
+                # Get the class object.
+                obj = globals()[class_name]
+
+                # Add the test.
+                suite_array.append(TestLoader().loadTestsFromNames([test_name], obj))
+
+        # All tests.
+        if not tests:
+            suite_array.append(TestLoader().loadTestsFromTestCase(Bmrb))
+            suite_array.append(TestLoader().loadTestsFromTestCase(Ct))
+            suite_array.append(TestLoader().loadTestsFromTestCase(Dead_uf_pages))
+            suite_array.append(TestLoader().loadTestsFromTestCase(Frame_order))
+            suite_array.append(TestLoader().loadTestsFromTestCase(Jw_mapping))
+            suite_array.append(TestLoader().loadTestsFromTestCase(Mf))
+            suite_array.append(TestLoader().loadTestsFromTestCase(N_state_model))
+            suite_array.append(TestLoader().loadTestsFromTestCase(Noe))
+            suite_array.append(TestLoader().loadTestsFromTestCase(Pipes))
+            suite_array.append(TestLoader().loadTestsFromTestCase(Rx))
+            suite_array.append(TestLoader().loadTestsFromTestCase(State))
+
+        # Group all tests together.
+        full_suite = TestSuite(suite_array)
+
+        # Run the test suite.
+        results = runner.run(full_suite)
+
+        # Return the status of the tests.
+        return results.wasSuccessful()
