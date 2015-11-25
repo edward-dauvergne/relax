@@ -1,0 +1,21 @@
+# This file was created Fri Nov 20 19:56:28 2015
+# Created by:
+#                  :-) GROMACS - gmx anaeig, VERSION 5.1.1 (-:
+# 
+# Executable:   /usr/local/gromacs/bin/gmx
+# Data prefix:  /usr/local/gromacs
+# Command line:
+#   gmx anaeig -f ../distribution.pdb -s ../distribution.pdb -first 1 -last 2 -2d proj-1-2.xvg
+# gmx anaeig is part of G R O M A C S:
+#
+# GROningen MAchine for Chemical Simulation
+#
+@    title "2D projection of trajectory"
+@    xaxis  label "projection on eigenvector 1 (nm)"
+@    yaxis  label "projection on eigenvector 2 (nm)"
+@TYPE xy
+  -0.38735    0.21143
+   0.96087    0.07893
+  -0.84236   -0.05173
+  -0.23302   -0.11191
+   0.50186   -0.12672

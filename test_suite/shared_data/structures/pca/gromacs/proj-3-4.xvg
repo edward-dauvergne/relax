@@ -1,0 +1,21 @@
+# This file was created Fri Nov 20 19:56:28 2015
+# Created by:
+#                  :-) GROMACS - gmx anaeig, VERSION 5.1.1 (-:
+# 
+# Executable:   /usr/local/gromacs/bin/gmx
+# Data prefix:  /usr/local/gromacs
+# Command line:
+#   gmx anaeig -f ../distribution.pdb -s ../distribution.pdb -first 3 -last 4 -2d proj-3-4.xvg
+# gmx anaeig is part of G R O M A C S:
+#
+# Gallium Rubidium Oxygen Manganese Argon Carbon Silicon
+#
+@    title "2D projection of trajectory"
+@    xaxis  label "projection on eigenvector 3 (nm)"
+@    yaxis  label "projection on eigenvector 4 (nm)"
+@TYPE xy
+  -0.02325   -0.00119
+   0.02651    0.00209
+   0.03651   -0.00140
+  -0.02209    0.00530
+  -0.01767   -0.00481

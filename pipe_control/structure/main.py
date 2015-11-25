@@ -21,7 +21,7 @@
 
 # Python module imports.
 from minfx.generic import generic_minimise
-from numpy import array, average, dot, float64, mean, std, zeros
+from numpy import array, average, dot, float64, mean, ones, std, zeros
 from numpy.linalg import norm
 from os import F_OK, access, getcwd
 from re import search
@@ -35,13 +35,14 @@ from lib.check_types import is_float
 from lib.errors import RelaxError, RelaxFileError
 from lib.geometry.vectors import vector_angle_atan2
 from lib.io import get_file_path, open_write_file, write_data
-from lib.plotting.api import correlation_matrix
+from lib.plotting.api import correlation_matrix, write_xy_data, write_xy_header
 from lib.selection import tokenise
 from lib.sequence import write_spin_data
 from lib.sequence_alignment.msa import msa_general, msa_residue_numbers, msa_residue_skipping
 from lib.structure.internal.coordinates import assemble_atomic_coordinates, assemble_coord_array, loop_coord_structures
 from lib.structure.internal.displacements import Displacements
 from lib.structure.internal.object import Internal
+from lib.structure.pca import pca_analysis
 from lib.structure.represent.diffusion_tensor import diffusion_tensor
 from lib.structure.statistics import atomic_rmsd
 from lib.structure.superimpose import fit_to_first, fit_to_mean
@@ -111,7 +112,7 @@ def add_model(model_num=None):
     print("Created the empty model number %s." % model_num)
 
 
-def assemble_structural_coordinates(pipes=None, models=None, molecules=None, atom_id=None):
+def assemble_structural_coordinates(pipes=None, models=None, molecules=None, atom_id=None, lists=False):
     """Assemble the common atomic coordinates taking sequence alignments into account.
  
     @keyword pipes:     The data pipes to assemble the coordinates from.
@@ -122,6 +123,8 @@ def assemble_structural_coordinates(pipes=None, models=None, molecules=None, ato
     @type molecules:    None or list of lists of str
     @keyword atom_id:   The molecule, residue, and atom identifier string.  This matches the spin ID string format.
     @type atom_id:      str or None
+    @keyword lists:     A flag which if true will cause the object ID list per molecule, the model number list per molecule, and the molecule name list per molecule to also be returned.
+    @type lists:        bool
     @return:            The array of atomic coordinates (first dimension is the model and/or molecule, the second are the atoms, and the third are the coordinates); a list of unique IDs for each structural object, model, and molecule; the common list of molecule names; the common list of residue names; the common list of residue numbers; the common list of atom names; the common list of element names.
     @rtype:             numpy rank-3 float64 array, list of str, list of str, list of str, list of int, list of str, list of str
     """
@@ -195,7 +198,10 @@ def assemble_structural_coordinates(pipes=None, models=None, molecules=None, ato
 
     # Assemble and return the atomic coordinates and common atom information.
     coord, mol_name_common, res_name_common, res_num_common, atom_name_common, element_common = assemble_coord_array(atom_pos=atom_pos, mol_names=mol_names, res_names=res_names, res_nums=res_nums, atom_names=atom_names, elements=elements, sequences=one_letter_codes, skip=skip)
-    return coord, ids, mol_name_common, res_name_common, res_num_common, atom_name_common, element_common
+    if lists:
+        return coord, ids, object_id_list, model_list, molecule_list, mol_name_common, res_name_common, res_num_common, atom_name_common, element_common
+    else:
+        return coord, ids, mol_name_common, res_name_common, res_num_common, atom_name_common, element_common
 
 
 def assemble_structural_objects(pipes=None, models=None, molecules=None):
@@ -1001,6 +1007,102 @@ def load_spins_multi_mol(spin_id=None, str_id=None, from_mols=None, mol_name_tar
 
     # Set the number of states for use in the specific analyses.
     cdp.N = len(from_mols)
+
+
+def pca(pipes=None, models=None, molecules=None, obs_pipes=None, obs_models=None, obs_molecules=None, atom_id=None, algorithm=None, num_modes=4, format='grace', dir=None):
+    """PC analysis of the motions between all the loaded models.
+
+    @keyword pipes:         The data pipes to perform the PC analysis on.
+    @type pipes:            None or list of str
+    @keyword models:        The list of models to perform the PC analysis on.  The number of elements must match the pipes argument.  If set to None, then all models will be used.
+    @type models:           None or list of lists of int
+    @keyword molecules:     The list of molecules to perform the PC analysis on.  The number of elements must match the pipes argument.
+    @type molecules:        None or list of lists of str
+    @keyword obs_pipes:     The data pipes in the PC analysis which will have zero weight.  These structures are for comparison.
+    @type obs_pipes:        None or list of str
+    @keyword obs_models:    The list of models in the PC analysis which will have zero weight.  These structures are for comparison.  The number of elements must match the pipes argument.  If set to None, then all models will be used.
+    @type obs_models:       None or list of lists of int
+    @keyword obs_molecules: The list of molecules in the PC analysis which will have zero weight.  These structures are for comparison.  The number of elements must match the pipes argument.
+    @type obs_molecules:    None or list of lists of str
+    @keyword atom_id:       The atom identification string of the coordinates of interest.  This matches the spin ID string format.
+    @type atom_id:          str or None
+    @keyword algorithm:     The PCA algorithm to use (either 'eigen' or 'svd').
+    @type algorithm:        str
+    @keyword num_modes:     The number of PCA modes to calculate.
+    @type num_modes:        int
+    @keyword format:        The graph format to use.
+    @type format:           str
+    @keyword dir:           The optional directory to place the graphs into.
+    @type dir:              str
+    """
+
+    # Checks.
+    check_pipe()
+
+    # Assemble the structural coordinates.
+    coord, ids, object_id_list, model_list, molecule_list, mol_names, res_names, res_nums, atom_names, elements = assemble_structural_coordinates(pipes=pipes, models=models, molecules=molecules, atom_id=atom_id, lists=True)
+
+    # Determine the structure weights.
+    M = len(coord)
+    if obs_pipes == None:
+        obs_pipes = []
+    weights = ones(M, float64)
+    for struct in range(M):
+        # Is the structure in the 'observing' lists?
+        for i in range(len(obs_pipes)):
+            # Matching data pipe.
+            if object_id_list[struct] == obs_pipes[i]:
+                # Matching molecules.
+                if obs_molecules == None or molecule_list[struct] == obs_molecules[i]:
+                    # Matching models.
+                    if obs_models == None or model_list[struct] == obs_models[i]:
+                        weights[struct] = 0.0
+
+    # Perform the PC analysis.
+    print("\n\nStarting the PCA analysis.\n")
+    values, vectors, proj = pca_analysis(coord=coord, weights=weights, algorithm=algorithm, num_modes=num_modes)
+
+    # Store the values.
+    cdp.structure.pca_values = values
+    cdp.structure.pca_vectors = vectors
+    cdp.structure.pca_proj = proj
+
+    # Generate the graphs.
+    for mode in range(num_modes - 1):
+        # Assemble the data.
+        data = [[[]]]
+        current = None
+        labels = []
+        for struct in range(M):
+            # Create a unique ID for pipe and molecule name.
+            id = "%s - %s" % (object_id_list[struct], molecule_list[struct])
+            if current == None:
+                current = id
+                labels.append(current)
+
+            # Start a new set.
+            if current != id:
+                data[-1].append([])
+                current = id
+                labels.append(current)
+
+            # Add the projection.
+            data[-1][-1].append([proj[mode, struct], proj[mode+1, struct]])
+
+        # The number of graph sets.
+        sets = len(labels)
+
+        # Open the file for writing.
+        file = open_write_file("graph_pc%s_pc%s.agr" % (mode+1, mode+2), dir=dir, force=True)
+
+        # The header.
+        write_xy_header(format=format, file=file, title="Principle component projections", sets=[sets], set_names=[labels], axis_labels=[['PC mode %i (\cE\C)' % (mode+1), 'PC mode %i (\cE\C)' % (mode+2)]], linestyle=[[0]*sets])
+
+        # The data.
+        write_xy_data(format=format, data=data, file=file, graph_type='xy')
+
+        # Close the file.
+        file.close()
 
 
 def read_gaussian(file=None, dir=None, set_mol_name=None, set_model_num=None, verbosity=1, fail=True):

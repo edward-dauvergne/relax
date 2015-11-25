@@ -1,0 +1,20 @@
+# This file was created Fri Nov 20 19:56:28 2015
+# Created by:
+#                   :-) GROMACS - gmx covar, VERSION 5.1.1 (-:
+# 
+# Executable:   /usr/local/gromacs/bin/gmx
+# Data prefix:  /usr/local/gromacs
+# Command line:
+#   gmx covar -f ../distribution.pdb -s ../distribution.pdb -nofit -o eigenval.xvg -v eigenvec.trr -xpma covar.xpm -l covar.log
+# gmx covar is part of G R O M A C S:
+#
+# GRowing Old MAkes el Chrono Sweat
+#
+@    title "Eigenvalues of the covariance matrix"
+@    xaxis  label "Eigenvector index"
+@    yaxis  label "(nm\S2\N)"
+@TYPE xy
+         1 0.417808
+         2 0.0164377
+         3 0.000675256
+         4 1.17952e-05
