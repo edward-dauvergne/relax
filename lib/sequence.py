@@ -30,6 +30,7 @@ from warnings import warn
 from lib.checks import Check
 from lib.check_types import is_float
 from lib.errors import RelaxError, RelaxInvalidSeqError
+from lib.float import isFinite
 from lib.io import extract_data, open_write_file, strip, write_data
 from lib.selection import spin_id_to_data_list
 from lib.warnings import RelaxWarning, RelaxFileEmptyWarning
@@ -310,6 +311,11 @@ def read_spin_data(file=None, dir=None, file_data=None, spin_id_col=None, mol_na
                 else:
                     value = float(line[data_col-1])
 
+                    # If it a float, test if is nan.
+                    if not isFinite(value):
+                        warn(RelaxWarning("The value is not finite, skipping the line %s" % line))
+                        continue
+
             # Bad data.
             except ValueError:
                 warn(RelaxWarning("Invalid data, skipping the line %s" % line))
@@ -326,6 +332,11 @@ def read_spin_data(file=None, dir=None, file_data=None, spin_id_col=None, mol_na
                 # A float.
                 else:
                     error = float(line[error_col-1])
+
+                    # If it a float, test if is nan.
+                    if not isFinite(error):
+                        warn(RelaxWarning("The error is not finite, skipping the line %s" % line))
+                        continue
 
             # Bad data.
             except ValueError:

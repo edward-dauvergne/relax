@@ -2019,6 +2019,9 @@ def plot_disp_curves_to_file(file_name_ini=None, dir=None, y_axis=None, x_axis=N
     # Loop over each spin. Initialise spin counter.
     si = 0
     for spin, mol_name, res_num, res_name, spin_id in spin_loop(full_info=True, return_id=True, skip_desel=True):
+        if not hasattr(spin, "model"):
+            raise RelaxError("No model information is stored for the spin.  Please use the function: relax_disp.select_model(model='%s')"%MODEL_R2EFF)
+
         # Skip protons for MMQ data.
         if spin.model in MODEL_LIST_MMQ and spin.isotope == '1H':
             continue
@@ -2304,7 +2307,7 @@ def r20_from_min_r2eff(force=True, verbosity=1):
 
 
 def r2eff_read(id=None, file=None, dir=None, disp_frq=None, offset=None, spin_id_col=None, mol_name_col=None, res_num_col=None, res_name_col=None, spin_num_col=None, spin_name_col=None, data_col=None, error_col=None, sep=None):
-    """Read R2eff/R1rho values directly from a file whereby each row corresponds to a different spin.
+    """Read R2eff/R1rho values directly from a file whereby each row corresponds to a different spin.  If the spin-container already contain r2eff values with the 'frequency of the CPMG pulse' or 'spin-lock field strength', the frequency will be changed by a infinitesimal small value of + 0.001 Hz.  This allow for duplicates or more of the same frequency.
 
     @keyword id:            The experiment ID string to associate the data with.
     @type id:               str
@@ -2383,14 +2386,35 @@ def r2eff_read(id=None, file=None, dir=None, disp_frq=None, offset=None, spin_id
         # The dispersion point key.
         point_key = return_param_key_from_data(exp_type=exp_type, frq=frq, offset=offset, point=disp_frq)
 
+        # Store the infinitesimal small change instead ?
+        store_infinitesimal = False
+
         # Store the R2eff data.
         if data_col:
             # Initialise if necessary.
             if not hasattr(spin, 'r2eff'):
                 spin.r2eff = {}
 
-            # Store.
-            spin.r2eff[point_key] = value
+            # First check that a replicate does not exists. And it if exists, find a new id with infinitesimal small change.
+            if point_key in spin.r2eff:
+                warn(RelaxWarning("The r2eff value key: %s already exists. \nAn infinitesimal small change to the dispersion frequency is performed, until a new point can be stored."%(point_key)))
+
+                # Store the current values.
+                disp_frq_infinitesimal = disp_frq
+                point_key_infinitesimal = point_key
+
+                # Continue until found
+                while point_key_infinitesimal == point_key:
+                    disp_frq_infinitesimal += 0.001
+                    point_key_infinitesimal = return_param_key_from_data(exp_type=exp_type, frq=frq, offset=offset, point=disp_frq_infinitesimal)
+
+                warn(RelaxWarning("The dispersion point is changed from %.3f to %.3f, and the new key is: %s"%(disp_frq, disp_frq_infinitesimal, point_key_infinitesimal)))
+                spin.r2eff[point_key_infinitesimal] = value
+                store_infinitesimal = True
+
+            # Else store.
+            else:
+                spin.r2eff[point_key] = value
 
         # Store the R2eff error.
         if error_col:
@@ -2398,8 +2422,26 @@ def r2eff_read(id=None, file=None, dir=None, disp_frq=None, offset=None, spin_id
             if not hasattr(spin, 'r2eff_err'):
                 spin.r2eff_err = {}
 
-            # Store.
-            spin.r2eff_err[point_key] = error
+            # First check that a replicate does not exists. And it if exists, find a new id with infinitesimal small change.
+            if point_key in spin.r2eff_err:
+                warn(RelaxWarning("The r2eff error key: %s already exists. \nAn infinitesimal small change to the dispersion frequency is performed, until a new point can be stored."%(point_key)))
+
+                # Store the current values.
+                disp_frq_infinitesimal = disp_frq
+                point_key_infinitesimal = point_key
+
+                # Continue until found
+                while point_key_infinitesimal == point_key:
+                    disp_frq_infinitesimal += 0.001
+                    point_key_infinitesimal = return_param_key_from_data(exp_type=exp_type, frq=frq, offset=offset, point=disp_frq_infinitesimal)
+
+                warn(RelaxWarning("The dispersion point is changed from %.3f to %.3f, and the new key is: %s\n"%(disp_frq, disp_frq_infinitesimal, point_key_infinitesimal)))
+                spin.r2eff_err[point_key_infinitesimal] = error
+                store_infinitesimal = True
+
+            # Else store.
+            else:
+                spin.r2eff_err[point_key] = error
 
         # Data added.
         data_flag = True
@@ -2420,9 +2462,15 @@ def r2eff_read(id=None, file=None, dir=None, disp_frq=None, offset=None, spin_id
     if data_flag:
         # Set the dispersion point frequency.
         if exp_type in EXP_TYPE_LIST_CPMG:
-            cpmg_setup(spectrum_id=id, cpmg_frq=disp_frq)
+            if store_infinitesimal:
+                cpmg_setup(spectrum_id=id, cpmg_frq=disp_frq_infinitesimal)
+            else:
+                cpmg_setup(spectrum_id=id, cpmg_frq=disp_frq)
         else:
-            spin_lock_field(spectrum_id=id, field=disp_frq)
+            if store_infinitesimal:
+                spin_lock_field(spectrum_id=id, field=disp_frq_infinitesimal)
+            else:
+                spin_lock_field(spectrum_id=id, field=disp_frq)
 
 
 def r2eff_read_spin(id=None, spin_id=None, file=None, dir=None, disp_point_col=None, offset_col=None, data_col=None, error_col=None, sep=None):
