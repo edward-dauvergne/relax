@@ -232,10 +232,15 @@ class Model_free(API_base, API_common):
         model_list = []
 
         # Store the spin specific data in lists for later use.
-        for spin, mol_name, res_num, res_name, spin_id in spin_loop(full_info=True, return_id=True):
+        for spin, mol_name, res_num, res_name, spin_id in spin_loop(full_info=True, skip_desel=True, return_id=True):
             # Skip the protons.
             if spin.name == 'H' or (hasattr(spin, 'element') and spin.element == 'H'):
                 warn(RelaxWarning("Skipping the proton spin '%s'." % spin_id))
+                continue
+
+            # No model setup.
+            if not hasattr(spin, 'model'):
+                warn(RelaxWarning("Skipping the spin '%s' as no model-free model has been set up." % spin_id))
                 continue
 
             # Check the data for None (not allowed in BMRB!).
@@ -340,6 +345,10 @@ class Model_free(API_base, API_common):
 
             # Model-free model.
             model_list.append(to_bmrb_model(spin.model))
+
+        # Check that spin data is present.
+        if not len(model_list):
+            raise RelaxError("No model-free data could be found for any of the currently selected spins.")
 
         # Convert the molecule names into the entity IDs.
         entity_ids = zeros(len(mol_name_list), int32)
