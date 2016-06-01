@@ -1,6 +1,6 @@
 ###############################################################################
 #                                                                             #
-# Copyright (C) 2003-2015 Edward d'Auvergne                                   #
+# Copyright (C) 2003-2016 Edward d'Auvergne                                   #
 #                                                                             #
 # This file is part of the program relax (http://www.nmr-relax.com).          #
 #                                                                             #
@@ -21,7 +21,7 @@
 
 # Python module imports.
 from minfx.generic import generic_minimise
-from numpy import array, average, dot, float64, mean, ones, std, zeros
+from numpy import array, average, concatenate, dot, float64, mean, ones, std, zeros
 from numpy.linalg import norm
 from os import F_OK, access, getcwd
 from re import search
@@ -816,7 +816,7 @@ def get_pos(spin_id=None, str_id=None, ave_pos=False):
     write_data(out=sys.stdout, headings=["Spin_ID", "Position"], data=data)
 
 
-def load_spins(spin_id=None, str_id=None, from_mols=None, mol_name_target=None, ave_pos=False):
+def load_spins(spin_id=None, str_id=None, from_mols=None, mol_name_target=None, ave_pos=False, spin_num=True):
     """Load the spins from the structural object into the relax data store.
 
     @keyword spin_id:           The molecule, residue, and spin identifier string.
@@ -829,11 +829,13 @@ def load_spins(spin_id=None, str_id=None, from_mols=None, mol_name_target=None, 
     @type mol_name_target:      str or None
     @keyword ave_pos:           A flag specifying if the average atom position or the atom position from all loaded structures is loaded into the SpinContainer.
     @type ave_pos:              bool
+    @keyword spin_num:          A flag specifying if the spin number should be loaded.
+    @type spin_num:             bool
     """
 
     # The multi-molecule case.
     if from_mols != None:
-        load_spins_multi_mol(spin_id=spin_id, str_id=str_id, from_mols=from_mols, mol_name_target=mol_name_target, ave_pos=ave_pos)
+        load_spins_multi_mol(spin_id=spin_id, str_id=str_id, from_mols=from_mols, mol_name_target=mol_name_target, ave_pos=ave_pos, spin_num=spin_num)
         return
 
     # Checks.
@@ -856,6 +858,10 @@ def load_spins(spin_id=None, str_id=None, from_mols=None, mol_name_target=None, 
         # Override the molecule name.
         if mol_name_target:
             mol_name = mol_name_target
+
+        # No spin number.
+        if not spin_num:
+            atom_num = None
 
         # Remove the '+' regular expression character from the mol, res, and spin names!
         if mol_name and search('\+', mol_name):
@@ -887,7 +893,11 @@ def load_spins(spin_id=None, str_id=None, from_mols=None, mol_name_target=None, 
         spin_names.append(atom_name)
 
         # Position vector.
-        spin_cont.pos = pos
+        if hasattr(spin_cont, 'pos') and spin_cont.pos != None and (spin_cont.pos.shape != pos.shape or (spin_cont.pos != pos).any()):
+            warn(RelaxWarning("Positional information already exists for the spin %s, appending the new positions." % id))
+            spin_cont.pos = concatenate((spin_cont.pos, pos))
+        else:
+            spin_cont.pos = pos
 
         # Add the element.
         spin_cont.element = element
@@ -904,7 +914,7 @@ def load_spins(spin_id=None, str_id=None, from_mols=None, mol_name_target=None, 
     cdp.N = cdp.structure.num_models()
 
 
-def load_spins_multi_mol(spin_id=None, str_id=None, from_mols=None, mol_name_target=None, ave_pos=False):
+def load_spins_multi_mol(spin_id=None, str_id=None, from_mols=None, mol_name_target=None, ave_pos=False, spin_num=True):
     """Load the spins from the structural object into the relax data store.
 
     @keyword spin_id:           The molecule, residue, and spin identifier string.
@@ -917,6 +927,8 @@ def load_spins_multi_mol(spin_id=None, str_id=None, from_mols=None, mol_name_tar
     @type mol_name_target:      str or None
     @keyword ave_pos:           A flag specifying if the average atom position or the atom position from all loaded structures is loaded into the SpinContainer.
     @type ave_pos:              bool
+    @keyword spin_num:          A flag specifying if the spin number should be loaded.
+    @type spin_num:             bool
     """
 
     # Checks.
@@ -966,6 +978,10 @@ def load_spins_multi_mol(spin_id=None, str_id=None, from_mols=None, mol_name_tar
                 res_name = res_name.replace('+', '')
             if atom_name and search('\+', atom_name):
                 atom_name = atom_name.replace('+', '')
+
+            # No spin number.
+            if not spin_num:
+                atom_num = None
 
             # Generate a spin ID for the current atom.
             id = generate_spin_id_unique(mol_name=mol_name_target, res_num=res_num, res_name=res_name, spin_name=atom_name)

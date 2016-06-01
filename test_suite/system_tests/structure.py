@@ -1,6 +1,6 @@
 ###############################################################################
 #                                                                             #
-# Copyright (C) 2008-2015 Edward d'Auvergne                                   #
+# Copyright (C) 2008-2016 Edward d'Auvergne                                   #
 #                                                                             #
 # This file is part of the program relax (http://www.nmr-relax.com).          #
 #                                                                             #
@@ -21,7 +21,7 @@
 
 # Python module imports.
 from math import sqrt
-from numpy import array, average, dot, float64, std, zeros
+from numpy import array, average, dot, float64, sign, std, zeros
 from numpy.linalg import norm
 from os import sep
 from re import search
@@ -4150,6 +4150,11 @@ class Structure(SystemTestCase):
         proj[:, 2] = -proj[:, 2]
         proj[:, 3] = -proj[:, 3]
 
+        # Are more inversion necessary?
+        for mode in range(4):
+            if sign(cdp.structure.pca_proj[mode][0]) != sign(proj[0][mode]):
+                proj[:, mode] = -proj[:, mode]
+
         # Checks.
         self.assert_(hasattr(cdp.structure, 'pca_values'))
         self.assert_(hasattr(cdp.structure, 'pca_vectors'))
@@ -4180,6 +4185,11 @@ class Structure(SystemTestCase):
         # Invert the 3rd and 4th Gromacs eigenvectors to match.
         proj[:, 2] = -proj[:, 2]
         proj[:, 3] = -proj[:, 3]
+
+        # Are more inversion necessary?
+        for mode in range(4):
+            if sign(cdp.structure.pca_proj[mode][0]) != sign(proj[0][mode]):
+                proj[:, mode] = -proj[:, mode]
 
         # Checks.
         self.assert_(hasattr(cdp.structure, 'pca_values'))
@@ -4498,7 +4508,7 @@ class Structure(SystemTestCase):
         self.assertEqual(len(cdp.mol[0].res[0].spin[0].pos), 2)
 
         # And now all the rest of the atoms.
-        self.interpreter.structure.load_spins()
+        self.interpreter.structure.load_spins(ave_pos=False)
 
 
     def test_read_pdb_internal4(self):

@@ -1,6 +1,7 @@
 ###############################################################################
 #                                                                             #
-# Copyright (C) 2011-2014 Edward d'Auvergne                                   #
+# Copyright (C) 2011-2016 Edward d'Auvergne                                   #
+# Copyright (C) 2016 Troels Schwartz-Linnet                                   #
 #                                                                             #
 # This file is part of the program relax (http://www.nmr-relax.com).          #
 #                                                                             #
@@ -22,15 +23,79 @@
 # Module docstring.
 """The sys_info user function definitions."""
 
+# Python module imports.
+import dep_check
+if dep_check.wx_module:
+    from wx import FD_CHANGE_DIR
+else:
+    FD_CHANGE_DIR = -1
+from os import sep
+
 # relax module imports.
+from graphics import WIZARD_OXYGEN_PATH
 from info import print_sys_info
 from lib.timing import print_time
+from pipe_control.system import cd, pwd
 from user_functions.data import Uf_info; uf_info = Uf_info()
 from user_functions.objects import Desc_container
 
 
+# The user function class.
+uf_class = uf_info.add_class('system')
+uf_class.title = "Class containing the OS system related functions."
+uf_class.menu_text = "&system"
+uf_class.gui_icon = "oxygen.actions.help-about"
+
+
+# The cd user function.
+uf = uf_info.add_uf('system.cd')
+uf.title = "Change the current working directory to the specified path."
+uf.title_short = "Change current working directory."
+uf.display = True
+uf.add_keyarg(
+    name = "path",
+    py_type = "str",
+    arg_type = "dir sel",
+    desc_short = "path",
+    desc = "The path to the new current working directory.",
+    can_be_none = False,
+    wiz_filesel_style = FD_CHANGE_DIR
+)
+# Description.
+uf.desc.append(Desc_container())
+uf.desc[-1].add_paragraph("The equivalent of python module os.chdir(path).  Change the current working directory to the specified path.")
+uf.desc[-1].add_paragraph("To change the current working directory, type:")
+uf.desc[-1].add_prompt("relax> system.cd(\"/path/to/dir\")")
+uf.backend = cd
+uf.display = False
+uf.menu_text = "&cd"
+uf.gui_icon = "oxygen.places.folder-favorites"
+uf.wizard_size = (700, 400)
+uf.wizard_image = WIZARD_OXYGEN_PATH + 'places' + sep + 'folder-favorites.png'
+uf.wizard_apply_button = False
+
+
+# The system.pwd user function.
+uf = uf_info.add_uf('system.pwd')
+uf.title = "Display the current working directory."
+uf.title_short = "Display working directory."
+uf.display = True
+# Description.
+uf.desc.append(Desc_container())
+uf.desc[-1].add_paragraph("This will display the current working directory.")
+uf.desc[-1].add_paragraph("The directory can be changed with the system.cd(path) user function.")
+uf.desc[-1].add_prompt("relax> system.pwd()")
+uf.desc[-1].add_prompt("relax> system.cd(\"/path/to/dir\")")
+uf.backend = pwd
+uf.menu_text = "&pwd"
+uf.gui_icon = "oxygen.places.folder-development"
+uf.wizard_size = (700, 400)
+uf.wizard_image = WIZARD_OXYGEN_PATH + 'places' + sep + 'folder-development.png'
+uf.wizard_apply_button = False
+
+
 # The sys_info user function.
-uf = uf_info.add_uf('sys_info')
+uf = uf_info.add_uf('system.sys_info')
 uf.title = "Display all system information relating to this version of relax."
 uf.title_short = "Display system information."
 uf.display = True
@@ -45,7 +110,7 @@ uf.wizard_apply_button = False
 
 
 # The time user function.
-uf = uf_info.add_uf('time')
+uf = uf_info.add_uf('system.time')
 uf.title = "Display the current time."
 uf.title_short = "Current time."
 uf.display = True

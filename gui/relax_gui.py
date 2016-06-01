@@ -1,7 +1,8 @@
 ###############################################################################
 #                                                                             #
 # Copyright (C) 2009 Michael Bieri                                            #
-# Copyright (C) 2010-2015 Edward d'Auvergne                                   #
+# Copyright (C) 2010-2016 Edward d'Auvergne                                   #
+# Copyright (C) 2016 Troels Schwartz-Linnet                                   #
 #                                                                             #
 # This file is part of the program relax (http://www.nmr-relax.com).          #
 #                                                                             #
@@ -41,7 +42,7 @@ from gui.analyses import Analysis_controller
 from gui.spin_viewer.frame import Spin_view_window
 from gui.controller import Controller
 from gui.export_bmrb import Export_bmrb_window
-from gui.filedialog import RelaxFileDialog
+from gui.filedialog import RelaxDirDialog, RelaxFileDialog
 from gui.fonts import font
 from gui.icons import relax_icons
 from gui.interpreter import Interpreter
@@ -61,6 +62,7 @@ from lib.io import io_streams_restore
 from pipe_control import state
 from pipe_control.pipes import cdp_name
 from pipe_control.reset import reset
+from pipe_control.system import pwd
 from status import Status; status = Status()
 from version import version
 
@@ -69,6 +71,7 @@ from version import version
 TB_FILE_NEW = wx.NewId()
 TB_FILE_CLOSE = wx.NewId()
 TB_FILE_CLOSE_ALL = wx.NewId()
+TB_FILE_CWD = wx.NewId()
 TB_FILE_OPEN = wx.NewId()
 TB_FILE_SAVE = wx.NewId()
 TB_FILE_SAVE_AS = wx.NewId()
@@ -163,8 +166,8 @@ class Main(wx.Frame):
         self.SetTitle("relax " + version)
 
         # Set up the status bar.
-        self.status_bar = self.CreateStatusBar(3, 0)
-        self.status_bar.SetStatusWidths([-4, -1, -2])
+        self.status_bar = self.CreateStatusBar(4, 0)
+        self.status_bar.SetStatusWidths([-4, -4, -1, -2])
         self.update_status_bar()
 
         # Add the start screen.
@@ -178,6 +181,7 @@ class Main(wx.Frame):
 
         # Register functions with the observer objects.
         status.observers.pipe_alteration.register('status bar', self.update_status_bar, method_name='update_status_bar')
+        status.observers.system_cwd_path.register('status bar', self.update_status_bar, method_name='update_status_bar')
         status.observers.result_file.register('gui', self.show_results_viewer_no_warn, method_name='show_results_viewer_no_warn')
         status.observers.exec_lock.register('gui', self.enable, method_name='enab')
 
@@ -298,6 +302,10 @@ class Main(wx.Frame):
         # A separator.
         self.toolbar.AddSeparator()
 
+        # The change working directory button.
+        self.toolbar.AddLabelTool(TB_FILE_CWD, "Change working directory", wx.Bitmap(fetch_icon('oxygen.places.folder-favorites', "22x22"), wx.BITMAP_TYPE_ANY), shortHelp="Change working directory")
+        self.Bind(wx.EVT_TOOL, self.system_cwd, id=TB_FILE_CWD)
+
         # The open state button.
         self.toolbar.AddLabelTool(TB_FILE_OPEN, "Open relax state", wx.Bitmap(fetch_icon('oxygen.actions.document-open', "22x22"), wx.BITMAP_TYPE_ANY), shortHelp="Open relax state")
         self.Bind(wx.EVT_TOOL, self.state_load, id=TB_FILE_OPEN)
@@ -400,6 +408,7 @@ class Main(wx.Frame):
         wx.CallAfter(self.toolbar.EnableTool, TB_FILE_NEW, enable)
         wx.CallAfter(self.toolbar.EnableTool, TB_FILE_CLOSE, enable)
         wx.CallAfter(self.toolbar.EnableTool, TB_FILE_CLOSE_ALL, enable)
+        wx.CallAfter(self.toolbar.EnableTool, TB_FILE_CWD, enable)
         wx.CallAfter(self.toolbar.EnableTool, TB_FILE_OPEN, enable)
         wx.CallAfter(self.toolbar.EnableTool, TB_FILE_SAVE, enable)
         wx.CallAfter(self.toolbar.EnableTool, TB_FILE_SAVE_AS, enable)
@@ -448,6 +457,7 @@ class Main(wx.Frame):
 
         # Temporary data:  the save file.
         self.save_file = None
+        self.system_cwd_path = pwd(verbose=False)
 
         # Add the GUI object to the data store, if not present.
         if not hasattr(ds, 'relax_gui'):
@@ -893,6 +903,40 @@ class Main(wx.Frame):
                 page.sync_ds(upload)
 
 
+    def system_cwd(self, event=None):
+        """Change the system current working directory.
+
+        @keyword event: The wx event.
+        @type event:    wx event
+        """
+
+        # The dialog.
+        dialog = RelaxDirDialog(parent=self, message="Select working directory", defaultPath=wx.EmptyString, style=wx.DD_CHANGE_DIR)
+
+        # Show the dialog and catch if no directory has been selected.
+        if status.show_gui and dialog.ShowModal() != wx.ID_OK:
+            # Don't do anything.
+            return
+
+        # Call the get_path function to get the directory name and change path.
+        self.system_cwd_path = dialog.get_path()
+
+        # Update the status bar.
+        self.update_status_bar()
+
+        # Change the directory
+        try:
+            wx.BeginBusyCursor()
+
+            # Sleep a little so the user sees the busy cursor and knows that the directory changes has occurred.
+            sleep(1)
+
+        # Turn off the user feedback.
+        finally:
+            if wx.IsBusy():
+                wx.EndBusyCursor()
+
+
     def uf_call(self, event=None):
         """Catch the user function call to properly specify the parent window.
 
@@ -920,10 +964,14 @@ class Main(wx.Frame):
         if pipe == None:
             pipe = ''
 
+        # Get the current working directory
+        self.system_cwd_path = pwd(verbose=False)
+
         # The relax information box.
         info = Info_box()
 
         # Set the status.
-        wx.CallAfter(self.status_bar.SetStatusText, info.copyright[1], 0)
-        wx.CallAfter(self.status_bar.SetStatusText, "Current data pipe:", 1)
-        wx.CallAfter(self.status_bar.SetStatusText, pipe, 2)
+        wx.CallAfter(self.status_bar.SetStatusText, info.copyright_short, 0)
+        wx.CallAfter(self.status_bar.SetStatusText, self.system_cwd_path, 1)
+        wx.CallAfter(self.status_bar.SetStatusText, "Data pipe:", 2)
+        wx.CallAfter(self.status_bar.SetStatusText, pipe, 3)
