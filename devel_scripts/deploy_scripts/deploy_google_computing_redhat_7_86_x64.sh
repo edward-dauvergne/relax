@@ -2,28 +2,39 @@
 # -*- coding: UTF-8 -*-
 # Script for deploying relax on Google Cloud Computing GCC
 
-# Install apt-get packages
-function doaptget {
+# Install yum packages
+function doyum {
   # Install lynx
-  sudo apt-get -y install lynx
-
-  # Install for server management
-  sudo apt-get -y install htop
+  sudo yum -y install lynx
 
   # Install for running relax in multiple CPU mode
-  sudo apt-get -y install openmpi-bin openmpi-doc libopenmpi-dev
-
-  # Install dependencies
-  sudo apt-get -y install python-numpy
-  sudo apt-get -y install python-scipy python-matplotlib python-pip
+  sudo yum -y install openmpi-devel
+  echo "module load mpi/openmpi-x86_64" >> $HOME/.bash_profile
 
   # For trunk checkout and graphs
-  sudo apt-get -y install subversion scons grace
+  sudo yum -y install subversion scons 
+
+  # Install xmgrace. Add the EPEL repository.
+  sudo yum -y install wget curl bzip2
+  wget https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+  sudo yum -y install epel-release-latest-7.noarch.rpm
+  sudo yum -y install grace
+
+  # Install dependencies
+  sudo yum -y install numpy
+  sudo yum -y install scipy python-matplotlib
+
+  # mpi4py
+  sudo yum -y install mpi4py-openmpi
+
+  # wxPython for GUI
+  sudo yum -y install wxPython
 }
 
 # Install python packages
 function dopip {
-  sudo pip install mpi4py
+  # Install python pip
+  sudo easy_install pip
   sudo pip install epydoc
 }
 
@@ -35,7 +46,7 @@ function getversions {
   VREL=`lynx -dump "http://wiki.nmr-relax.com/Template:Current_version_relax" | grep -A 10 "Template:Current version relax" | grep -B 1 "Retrieved from" | head -n 1 | tr -d '[[:space:]]'`
 
   echo "Current version of minfx is: $VMIN"
-  echo "Current version of bmrblib is: $VMBR"
+  echo "Current version of bmrblib is: $VBMR"
   echo "Current version of mpi4py is: $VMPI"
   echo "Current version of relax is: $VREL"
 }
@@ -43,9 +54,6 @@ function getversions {
 # Make home bin
 function dobin {
   mkdir -p $HOME/bin
-  echo '' >> $HOME/.bashrc
-  echo 'export PATH=$PATH:$HOME/bin' >> $HOME/.bashrc
-  source $HOME/.bashrc
 }
 
 # Do local istallations of pip
@@ -71,6 +79,7 @@ function dopiplocal {
 
 # Get latest compiled version of relax
 function getlatest {
+  sudo yum -y install 
   cd $HOME
   if [ ! -d "$HOME/relax-$VREL" ]; then
     curl http://download.gna.org/relax/relax-$VREL.GNU-Linux.x86_64.tar.bz2 -o relax-$VREL.GNU-Linux.x86_64.tar.bz2
@@ -105,19 +114,21 @@ function checkinstallation {
   whoami
   lscpu
   mpirun --version
-  mpirun --report-bindings -np 4 echo "mpirun with 4 CPU echoes"
+  mpirun --report-bindings -np 2 echo "mpirun with 2 CPU echoes"
 
   # Print info
   which relax_$VREL
   relax_$VREL -i
+  #mpirun --report-bindings --np 2 relax_$VREL --multi='mpi4py' --version
 
   which relax_trunk
   relax_trunk -i
+  #mpirun --report-bindings --np 2 relax_trunk --multi='mpi4py' --version
 }
 
 # Combine functions
 function installandcheck {
-  doaptget
+  doyum
   dopip
   getversions
   dobin
@@ -126,6 +137,8 @@ function installandcheck {
   gettrunk
   checkinstallation
 }
+
+echo "After running 'installandcheck', you should restart the terminal or logout and login again."
 
 # Do functions
 #installandcheck
